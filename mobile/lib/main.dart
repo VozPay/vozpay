@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -65,16 +67,22 @@ class _BankExperienceState extends State<BankExperience> {
   );
   bool _busy = false;
   String _heard = '';
+  String _voiceStatus = 'Toque e diga o que precisa';
+  Timer? _speechDebounce;
+  bool _speechSubmitted = false;
 
   bool get _isRisky => _intent.amount > 500 || _intent.recipient == 'João';
 
   Future<void> _interpret(String phrase) async {
+    final cleanPhrase = phrase.trim();
+    if (cleanPhrase.isEmpty || _busy) return;
     setState(() {
       _busy = true;
-      _heard = phrase;
+      _heard = cleanPhrase;
+      _voiceStatus = 'Interpretando com Gemini…';
     });
     try {
-      final result = await _gemini.interpretPayment(phrase);
+      final result = await _gemini.interpretPayment(cleanPhrase);
       if (!mounted) return;
       setState(() {
         _intent = result;
@@ -85,8 +93,13 @@ class _BankExperienceState extends State<BankExperience> {
       await _tts.speak(result.explanation);
     } catch (error) {
       if (!mounted) return;
+      setState(() => _voiceStatus = 'Não foi possível interpretar a fala.');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Não consegui interpretar: $error')),
+        SnackBar(
+          content: Text('$error'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 6),
+        ),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -94,19 +107,71 @@ class _BankExperienceState extends State<BankExperience> {
   }
 
   Future<void> _listen() async {
-    final available = await _speech.initialize();
-    if (!available) {
-      await _interpret('Manda 150 reais para minha filha');
-      return;
-    }
-    setState(() => _heard = 'Estou ouvindo…');
-    await _speech.listen(
-      localeId: 'pt_BR',
-      onResult: (result) {
-        setState(() => _heard = result.recognizedWords);
-        if (result.finalResult) _interpret(result.recognizedWords);
+    _speechDebounce?.cancel();
+    _speechSubmitted = false;
+    final available = await _speech.initialize(
+      onStatus: (status) {
+        if ((status == 'done' || status == 'notListening') &&
+            _heard.trim().isNotEmpty) {
+          _submitRecognizedSpeech();
+        }
+      },
+      onError: (error) {
+        if (!mounted) return;
+        setState(() => _voiceStatus = 'Não consegui ouvir. Tente novamente.');
       },
     );
+    if (!available) {
+      if (mounted) {
+        setState(() => _voiceStatus = 'Permissão de microfone indisponível.');
+      }
+      return;
+    }
+    setState(() {
+      _heard = '';
+      _voiceStatus = 'Estou ouvindo…';
+    });
+    await _speech.listen(
+      localeId: 'pt_BR',
+      listenFor: const Duration(seconds: 12),
+      pauseFor: const Duration(seconds: 2),
+      listenOptions: SpeechListenOptions(
+        partialResults: true,
+        cancelOnError: true,
+      ),
+      onResult: (result) {
+        final words = result.recognizedWords.trim();
+        if (words.isEmpty || !mounted) return;
+        setState(() {
+          _heard = words;
+          _voiceStatus = result.finalResult
+              ? 'Fala concluída. Enviando para o Gemini…'
+              : 'Quando terminar, aguarde um instante.';
+        });
+        _speechDebounce?.cancel();
+        _speechDebounce = Timer(
+          const Duration(milliseconds: 1200),
+          _submitRecognizedSpeech,
+        );
+        if (result.finalResult) _submitRecognizedSpeech();
+      },
+    );
+  }
+
+  Future<void> _submitRecognizedSpeech() async {
+    if (_speechSubmitted || _heard.trim().isEmpty) return;
+    _speechSubmitted = true;
+    _speechDebounce?.cancel();
+    if (_speech.isListening) await _speech.stop();
+    await _interpret(_heard);
+  }
+
+  @override
+  void dispose() {
+    _speechDebounce?.cancel();
+    _speech.stop();
+    _tts.stop();
+    super.dispose();
   }
 
   @override
@@ -163,7 +228,10 @@ class _BankExperienceState extends State<BankExperience> {
                 child: Text(_busy ? 'AGUARDE' : 'FALAR'),
               ),
               const SizedBox(height: 14),
-              Text(_heard.isEmpty ? 'Toque e diga o que precisa' : _heard),
+              Text(
+                _heard.isEmpty ? _voiceStatus : '“$_heard”\n$_voiceStatus',
+                textAlign: TextAlign.center,
+              ),
             ]),
           ),
           _button('Simular: R\$ 150 para Maria', () => _interpret('Manda 150 reais para Maria Silva'), secondary: true),
