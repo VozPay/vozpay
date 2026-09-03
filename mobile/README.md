@@ -23,7 +23,8 @@ flutter pub get
 flutter run
 ```
 
-Sem a chave, os dois cenários simulados continuam funcionando.
+As frases reconhecidas e os botões de cenário são enviados ao Gemini. Sem uma
+chave válida, o aplicativo mostra o erro e não avança como se tivesse usado IA.
 
 ## Permissão de microfone
 
