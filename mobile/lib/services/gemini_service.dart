@@ -33,7 +33,9 @@ class GeminiService {
   bool get isConfigured => _apiKey.isNotEmpty;
 
   Future<PaymentIntent> interpretPayment(String phrase) async {
-    if (!isConfigured) return _fallback(phrase);
+    if (!isConfigured) {
+      throw Exception('GEMINI_API_KEY não configurada no arquivo .env.');
+    }
 
     final uri = Uri.parse(
       'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent?key=$_apiKey',
@@ -68,22 +70,23 @@ Pedido: $phrase
       throw Exception('Gemini respondeu com status ${response.statusCode}.');
     }
     final body = jsonDecode(response.body) as Map<String, dynamic>;
-    final text = body['candidates'][0]['content']['parts'][0]['text'] as String;
-    return PaymentIntent.fromJson(jsonDecode(text) as Map<String, dynamic>);
-  }
-
-  PaymentIntent _fallback(String phrase) {
-    final normalized = phrase.toLowerCase();
-    final risky = normalized.contains('joão') ||
-        normalized.contains('2000') ||
-        normalized.contains('dois mil');
-    return PaymentIntent(
-      action: 'pix',
-      amount: risky ? 2000 : 150,
-      recipient: risky ? 'João' : 'Maria Silva',
-      explanation: risky
-          ? 'Enviar R\$ 2.000 para João'
-          : 'Enviar R\$ 150 para Maria Silva',
-    );
+    final candidates = body['candidates'] as List<dynamic>?;
+    if (candidates == null || candidates.isEmpty) {
+      throw Exception('O Gemini não retornou uma interpretação.');
+    }
+    final content = candidates.first['content'] as Map<String, dynamic>?;
+    final parts = content?['parts'] as List<dynamic>?;
+    final firstPart = parts != null && parts.isNotEmpty
+        ? parts.first as Map<String, dynamic>
+        : null;
+    final text = firstPart?['text']?.toString();
+    if (text == null || text.isEmpty) {
+      throw Exception('Resposta vazia recebida do Gemini.');
+    }
+    final intent = PaymentIntent.fromJson(jsonDecode(text) as Map<String, dynamic>);
+    if (intent.amount <= 0 || intent.recipient.trim().isEmpty) {
+      throw Exception('Faltou informar o valor ou o destinatário.');
+    }
+    return intent;
   }
 }
