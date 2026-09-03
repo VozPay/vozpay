@@ -66,6 +66,7 @@ class _BankExperienceState extends State<BankExperience> {
     explanation: 'Enviar R\$ 150 para Maria Silva',
   );
   bool _busy = false;
+  bool _isListening = false;
   String _heard = '';
   String _voiceStatus = 'Toque e diga o que precisa';
   Timer? _speechDebounce;
@@ -79,7 +80,7 @@ class _BankExperienceState extends State<BankExperience> {
     setState(() {
       _busy = true;
       _heard = cleanPhrase;
-      _voiceStatus = 'Interpretando com Gemini…';
+      _voiceStatus = 'Entendendo seu pedido…';
     });
     try {
       final result = await _gemini.interpretPayment(cleanPhrase);
@@ -107,10 +108,21 @@ class _BankExperienceState extends State<BankExperience> {
   }
 
   Future<void> _listen() async {
+    if (_isListening || _speech.isListening) {
+      await _submitRecognizedSpeech();
+      return;
+    }
     _speechDebounce?.cancel();
     _speechSubmitted = false;
+    setState(() {
+      _heard = '';
+      _isListening = false;
+      _voiceStatus = 'Preparando o microfone…';
+    });
     final available = await _speech.initialize(
       onStatus: (status) {
+        if (!mounted) return;
+        setState(() => _isListening = status == 'listening');
         if ((status == 'done' || status == 'notListening') &&
             _heard.trim().isNotEmpty) {
           _submitRecognizedSpeech();
@@ -118,7 +130,10 @@ class _BankExperienceState extends State<BankExperience> {
       },
       onError: (error) {
         if (!mounted) return;
-        setState(() => _voiceStatus = 'Não consegui ouvir. Tente novamente.');
+        setState(() {
+          _isListening = false;
+          _voiceStatus = 'Não consegui ouvir. Toque para tentar novamente.';
+        });
       },
     );
     if (!available) {
@@ -129,7 +144,8 @@ class _BankExperienceState extends State<BankExperience> {
     }
     setState(() {
       _heard = '';
-      _voiceStatus = 'Estou ouvindo…';
+      _isListening = true;
+      _voiceStatus = 'Estou ouvindo. Toque novamente quando terminar.';
     });
     await _speech.listen(
       localeId: 'pt_BR',
@@ -145,12 +161,12 @@ class _BankExperienceState extends State<BankExperience> {
         setState(() {
           _heard = words;
           _voiceStatus = result.finalResult
-              ? 'Fala concluída. Enviando para o Gemini…'
-              : 'Quando terminar, aguarde um instante.';
+              ? 'Fala concluída. Entendendo seu pedido…'
+              : 'Toque em CONCLUIR ou faça uma pausa.';
         });
         _speechDebounce?.cancel();
         _speechDebounce = Timer(
-          const Duration(milliseconds: 1200),
+          const Duration(milliseconds: 1800),
           _submitRecognizedSpeech,
         );
         if (result.finalResult) _submitRecognizedSpeech();
@@ -162,6 +178,12 @@ class _BankExperienceState extends State<BankExperience> {
     if (_speechSubmitted || _heard.trim().isEmpty) return;
     _speechSubmitted = true;
     _speechDebounce?.cancel();
+    if (mounted) {
+      setState(() {
+        _isListening = false;
+        _voiceStatus = 'Entendendo seu pedido…';
+      });
+    }
     if (_speech.isListening) await _speech.stop();
     await _interpret(_heard);
   }
@@ -213,7 +235,7 @@ class _BankExperienceState extends State<BankExperience> {
           ]),
           _actionCard(),
           if (!_gemini.isConfigured)
-            const Text('Modo demonstração: configure GEMINI_API_KEY no arquivo .env.', textAlign: TextAlign.center),
+            const Text('Assistente temporariamente indisponível.', textAlign: TextAlign.center),
         ]);
       case FlowStep.voice:
         return _column([
@@ -225,11 +247,18 @@ class _BankExperienceState extends State<BankExperience> {
               FilledButton(
                 onPressed: _busy ? null : _listen,
                 style: FilledButton.styleFrom(shape: const CircleBorder(), fixedSize: const Size(116, 116), backgroundColor: purple),
-                child: Text(_busy ? 'AGUARDE' : 'FALAR'),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(_isListening ? Icons.stop_rounded : Icons.mic_rounded),
+                    const SizedBox(height: 4),
+                    Text(_busy ? 'AGUARDE' : _isListening ? 'CONCLUIR' : 'FALAR'),
+                  ],
+                ),
               ),
               const SizedBox(height: 14),
               Text(
-                _heard.isEmpty ? _voiceStatus : '“$_heard”\n$_voiceStatus',
+                _heard.isEmpty ? _voiceStatus : '“$_heard”\n\n$_voiceStatus',
                 textAlign: TextAlign.center,
               ),
             ]),
