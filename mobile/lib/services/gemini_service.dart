@@ -34,7 +34,7 @@ class GeminiService {
 
   Future<PaymentIntent> interpretPayment(String phrase) async {
     if (!isConfigured) {
-      throw Exception('GEMINI_API_KEY não configurada no arquivo .env.');
+      throw Exception('Serviço de interpretação não configurado.');
     }
 
     final uri = Uri.parse(
@@ -67,12 +67,12 @@ Pedido: $phrase
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('Gemini respondeu com status ${response.statusCode}.');
+      throw Exception('Serviço temporariamente indisponível (${response.statusCode}).');
     }
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     final candidates = body['candidates'] as List<dynamic>?;
     if (candidates == null || candidates.isEmpty) {
-      throw Exception('O Gemini não retornou uma interpretação.');
+      throw Exception('Não foi possível interpretar o pedido.');
     }
     final content = candidates.first['content'] as Map<String, dynamic>?;
     final parts = content?['parts'] as List<dynamic>?;
@@ -81,7 +81,7 @@ Pedido: $phrase
         : null;
     final text = firstPart?['text']?.toString();
     if (text == null || text.isEmpty) {
-      throw Exception('Resposta vazia recebida do Gemini.');
+      throw Exception('Não foi possível interpretar o pedido.');
     }
     final intent = PaymentIntent.fromJson(jsonDecode(text) as Map<String, dynamic>);
     if (intent.amount <= 0 || intent.recipient.trim().isEmpty) {
