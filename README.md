@@ -27,6 +27,7 @@ Depois acesse `http://localhost:8000`.
 - `index.html`: experiência do cliente e console do parceiro;
 - `styles.css`: identidade visual e responsividade;
 - `app.js`: navegação, cenários e reconhecimento de voz.
+- `mobile/`: versão Flutter com voz, resposta falada e interpretação pelo Gemini.
 
 ## Observação
 
