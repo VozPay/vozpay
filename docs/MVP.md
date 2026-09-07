@@ -20,15 +20,15 @@ Modelos de linguagem podem interpretar frases, mas não são a fonte oficial do 
 
 Exigir aprovação familiar por idade reduziria a autonomia que o produto quer criar. O padrão é explicação clara e autenticação adicional. O usuário pode ativar voluntariamente uma pessoa de apoio e escolher quando ela participa.
 
-### Conta no lugar da Solana
+### Solana escolhida
 
-A Conta tem maior afinidade com o fluxo financeiro porque trabalha com Pix nas pontas, passkey/biometria e saldo autocustodial on-chain. Porém, sua documentação informa que ainda não oferece API pública para integrações de terceiros. Por isso, o hackathon não deve prometer uma integração que não existe.
+A Solana será a tecnologia blockchain oficial do MVP. Seu papel é registrar uma prova independente e verificável de que as etapas de proteção foram realizadas. Ela não substitui o Pix, não valida a chave e não movimenta o dinheiro.
 
-No MVP, a opção Conta deve ser apresentada como parceiro ou arquitetura futura, com a consulta e a execução simuladas. Se o regulamento exigir Solana, ela pode permanecer somente como prova técnica de auditoria. Se não exigir blockchain, a demonstração principal funciona sem ela.
+O Conta.vc foi avaliado por sua proximidade com Pix, passkey e autocustódia, mas ficou fora do escopo porque atualmente não oferece API pública para integrações de terceiros. O MVP não deve afirmar que existe uma conexão com essa plataforma.
 
-### Auditoria opcional
+### Auditoria na Solana Devnet
 
-Quando usada, a blockchain registra apenas o hash de um evento de proteção:
+O aplicativo gera um evento mínimo, transforma o conteúdo em hash e envia somente essa prova para a rede de testes:
 
 ```json
 {
@@ -39,7 +39,7 @@ Quando usada, a blockchain registra apenas o hash de um evento de proteção:
 }
 ```
 
-Não devem ser enviados valor, nome, CPF, telefone, e-mail, chave Pix, banco, saldo ou biometria. A chave privada também nunca é publicada.
+Não são enviados valor, nome, CPF, telefone, e-mail, chave Pix, banco, saldo ou biometria. A chave de assinatura também não fica exposta no aplicativo final; em produção, o registro deve ser assinado por um backend institucional.
 
 ## O que construir
 
@@ -112,7 +112,7 @@ A biometria, a execução do Pix e o comprovante são simulados em nome do Banco
 4. Perguntar sobre ligação ou mensagem suspeita.
 5. Oferecer revisar ou cancelar.
 6. Se continuar, pedir biometria adicional.
-7. Mostrar comprovante e, se adotada, prova de auditoria.
+7. Mostrar o comprovante e o recibo verificável da Solana Devnet.
 
 ## Critérios de aceite
 
@@ -133,7 +133,6 @@ O MVP está pronto quando:
 ## Fora do MVP
 
 - Pix real;
-- integração real com a Conta sem API oficial;
 - custódia de chaves;
 - voz como único fator de autenticação;
 - antifraude completo;
@@ -149,5 +148,5 @@ O MVP está pronto quando:
 4. Separar interpretação da IA e validação simulada.
 5. Finalizar os dois cenários.
 6. Adicionar configurações de proteção.
-7. Implementar recibo local com hash.
-8. Só depois, integrar uma rede de teste ou parceiro disponível.
+7. Gerar o hash do evento de proteção.
+8. Registrar a prova na Solana Devnet e exibir o link do recibo.
