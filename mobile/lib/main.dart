@@ -6,6 +6,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 import 'services/gemini_service.dart';
+import 'services/solana_audit_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,7 +57,9 @@ class _BankExperienceState extends State<BankExperience> {
   static const warningBg = Color(0xFFFFF0BD);
 
   final _gemini = GeminiService();
+  final _audit = SolanaAuditService();
   final _speech = SpeechToText();
+  final _textRequest = TextEditingController();
   final _tts = FlutterTts();
   FlowStep _step = FlowStep.home;
   PaymentIntent _intent = const PaymentIntent(
@@ -71,6 +74,8 @@ class _BankExperienceState extends State<BankExperience> {
   String _voiceStatus = 'Toque e diga o que precisa';
   Timer? _speechDebounce;
   bool _speechSubmitted = false;
+  AuditReceipt? _auditReceipt;
+  String _auditStatus = '';
 
   bool get _isRisky => _intent.amount > 500 || _intent.recipient == 'João';
 
@@ -83,15 +88,30 @@ class _BankExperienceState extends State<BankExperience> {
       _voiceStatus = 'Entendendo seu pedido…';
     });
     try {
-      final result = await _gemini.interpretPayment(cleanPhrase);
+      final interpreted = await _gemini.interpretPayment(cleanPhrase);
       if (!mounted) return;
+      final alias = interpreted.recipient.toLowerCase().trim();
+      final result = alias == 'minha filha' || alias == 'filha'
+          ? PaymentIntent(
+              action: interpreted.action,
+              amount: interpreted.amount,
+              recipient: 'Maria Silva',
+              explanation:
+                  'Enviar ${_money(interpreted.amount)} para Maria Silva',
+            )
+          : interpreted;
       setState(() {
         _intent = result;
-        _step = result.amount > 500 || result.recipient.toLowerCase() == 'joão'
+        _auditReceipt = null;
+        _auditStatus = '';
+        _step = result.amount > 500 ||
+                result.recipient.toLowerCase().contains('joão')
             ? FlowStep.risk
             : FlowStep.review;
       });
-      await _tts.speak(result.explanation);
+      await _tts.speak(
+        '${result.explanation}. Confira os dados antes de confirmar.',
+      );
     } catch (error) {
       if (!mounted) return;
       setState(() => _voiceStatus = 'Não foi possível interpretar a fala.');
@@ -105,6 +125,46 @@ class _BankExperienceState extends State<BankExperience> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<void> _submitText() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    await _interpret(_textRequest.text);
+  }
+
+  Future<void> _completePayment() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _auditStatus = 'Registrando a proteção…';
+    });
+
+    AuditReceipt? receipt;
+    String status;
+    if (_audit.isConfigured) {
+      try {
+        receipt = await _audit.recordProtection(
+          event: _isRisky
+              ? 'additional_confirmation_completed'
+              : 'standard_confirmation_completed',
+          sessionId: 'demo-${DateTime.now().millisecondsSinceEpoch}',
+          policyVersion: '1.0',
+        );
+        status = 'Proteção registrada na Solana Devnet';
+      } catch (_) {
+        status = 'Pix simulado concluído; auditoria indisponível';
+      }
+    } else {
+      status = 'Pix simulado concluído; configure a auditoria Solana';
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _auditReceipt = receipt;
+      _auditStatus = status;
+      _busy = false;
+      _step = FlowStep.success;
+    });
   }
 
   Future<void> _listen() async {
@@ -191,6 +251,7 @@ class _BankExperienceState extends State<BankExperience> {
   @override
   void dispose() {
     _speechDebounce?.cancel();
+    _textRequest.dispose();
     _speech.stop();
     _tts.stop();
     super.dispose();
@@ -263,7 +324,25 @@ class _BankExperienceState extends State<BankExperience> {
               ),
             ]),
           ),
-          _button('Simular: R\$ 150 para Maria', () => _interpret('Manda 150 reais para Maria Silva'), secondary: true),
+          TextField(
+            controller: _textRequest,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _submitText(),
+            decoration: InputDecoration(
+              labelText: 'Ou digite seu pedido',
+              hintText: 'Ex.: mande 150 reais para minha filha',
+              prefixIcon: const Icon(Icons.keyboard_alt_outlined),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+          ),
+          _button(
+            'Continuar com o texto',
+            _busy ? () {} : _submitText,
+            secondary: true,
+          ),
+          _button('Simular: R\$ 150 para Maria', () => _interpret('Manda 150 reais para minha filha'), secondary: true),
           _button('Simular: R\$ 2.000 para João', () => _interpret('Manda dois mil reais para João'), secondary: true),
           TextButton(onPressed: () => setState(() => _step = FlowStep.home), child: const Text('Voltar')),
         ]);
@@ -279,7 +358,10 @@ class _BankExperienceState extends State<BankExperience> {
             Text('✓ Operação dentro do padrão', style: TextStyle(color: safe, fontWeight: FontWeight.w800)),
             Text('Contato confiável e valor abaixo do limite protegido.'),
           ]),
-          _button('Confirmar com biometria', () => setState(() => _step = FlowStep.success)),
+          _button(
+            _busy ? 'Confirmando…' : 'Confirmar com biometria',
+            _completePayment,
+          ),
           _button('Cancelar', () => setState(() => _step = FlowStep.home), destructive: true),
         ]);
       case FlowStep.risk:
@@ -292,6 +374,10 @@ class _BankExperienceState extends State<BankExperience> {
           _card(children: const [
             Text('Alguém pediu este Pix por ligação ou WhatsApp?', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
           ]),
+          _button(
+            _busy ? 'Confirmando…' : 'Prosseguir com biometria adicional',
+            _completePayment,
+          ),
           _button('Revisar destinatário', () => setState(() => _step = FlowStep.voice)),
           _button('Cancelar Pix', () => setState(() => _step = FlowStep.home), destructive: true),
           const Text('Política VozPay ativa • registro verificável', textAlign: TextAlign.center),
@@ -309,9 +395,32 @@ class _BankExperienceState extends State<BankExperience> {
               Text('enviado para ${_intent.recipient}'),
             ]),
           ),
-          _card(children: const [
-            Text('Comprovante Banco Uno', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-            Text('Proteção adicional oferecida por VozPay', style: TextStyle(color: safe)),
+          _card(children: [
+            const Text(
+              'Comprovante Banco Uno',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+            ),
+            const Text(
+              'Proteção adicional oferecida por VozPay',
+              style: TextStyle(color: safe),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _auditStatus,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            if (_auditReceipt != null) ...[
+              const SizedBox(height: 8),
+              SelectableText(
+                'Recibo: ${_auditReceipt!.signature}',
+                style: const TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 6),
+              SelectableText(
+                _auditReceipt!.explorerUrl,
+                style: const TextStyle(fontSize: 12, color: purple),
+              ),
+            ],
           ]),
           _button('Voltar ao início', () => setState(() => _step = FlowStep.home)),
         ]);
@@ -323,7 +432,7 @@ class _BankExperienceState extends State<BankExperience> {
         borderRadius: BorderRadius.circular(20),
         child: _card(color: purple, children: const [
           Text('Falar com o VozPay', style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w800)),
-          Text('Faça um Pix com orientação por voz', style: TextStyle(color: Color(0xFFF0D8F8))),
+          Text('Faça um Pix por voz ou texto', style: TextStyle(color: Color(0xFFF0D8F8))),
         ]),
       );
 
