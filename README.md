@@ -3,7 +3,7 @@
 ![Flutter](https://img.shields.io/badge/Flutter-Mobile%20%2B%20Web-02569B?logo=flutter)
 ![Solana](https://img.shields.io/badge/Solana-Devnet-9945FF?logo=solana)
 ![Status](https://img.shields.io/badge/status-MVP-em%20desenvolvimento-F59E0B)
-![License](https://img.shields.io/badge/license-acad%C3%AAmico-6F0796)
+![Evento](https://img.shields.io/badge/projeto-Hackathon-6F0796)
 
 > Acessibilidade que ajuda o usuário a pedir, entender, conferir e autorizar pagamentos.
 
@@ -287,7 +287,7 @@ Antes da entrega, verificar:
 
 ## Limitações
 
-Este é um MVP acadêmico. Pix, biometria, consulta bancária e antifraude são simulados. O registro de auditoria pode ser real na Devnet, mas os tokens utilizados não possuem valor financeiro. O projeto não está pronto para movimentar dinheiro real.
+Este é um MVP desenvolvido para hackathon. Pix, biometria, consulta bancária e antifraude são simulados. O registro de auditoria pode ser real na Devnet, mas os tokens utilizados não possuem valor financeiro. O projeto não está pronto para movimentar dinheiro real.
 
 ## Entrega
 
@@ -304,7 +304,7 @@ Os links de APK, aplicação, vídeo e apresentação devem ser adicionados aqui
 
 ## Equipe
 
-Os nomes e RMs de todos os integrantes devem ser inseridos aqui antes da entrega. Nenhum integrante foi presumido para evitar informação incorreta.
+Os nomes dos integrantes devem ser inseridos aqui antes da entrega. Nenhum nome foi presumido para evitar informação incorreta.
 
 ## Documentação complementar
 
