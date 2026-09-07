@@ -19,14 +19,13 @@ O VozPay transforma pagamentos digitais em um processo que o usuário consegue p
 
 O produto oferece configurações iniciais prontas, mas personalizáveis. Alertas e biometria adicional são o padrão para operações de maior atenção. A aprovação de uma pessoa de apoio é opcional e ativada pelo próprio usuário, nunca imposta apenas pela idade.
 
-## Blockchain e Conta
+## Solana
 
-O MVP mantém duas possibilidades de arquitetura:
+A Solana foi escolhida como camada independente de auditoria do VozPay. Depois das verificações de proteção, o sistema registra na Devnet somente uma prova criptográfica do evento e apresenta um recibo verificável.
 
-- **Integração bancária/Conta:** melhor aderência ao uso cotidiano e ao Pix, mas tratada como simulação enquanto não existir uma API pública para terceiros.
-- **Registro em blockchain:** camada opcional de auditoria para registrar somente uma prova criptográfica das etapas de proteção.
+A Solana não executa o Pix. Ela também não recebe nome, CPF, chave Pix, valor, saldo ou biometria e nunca armazena a chave privada do usuário. O Banco Uno continua representando, de forma simulada, a instituição que valida, autentica e executa a transferência.
 
-A blockchain não executa o Pix e não recebe nome, CPF, chave Pix, valor, saldo ou biometria. Também não armazena a chave privada do usuário.
+O Conta.vc foi avaliado, mas ficou fora do MVP por não disponibilizar atualmente uma API pública para integrações de terceiros.
 
 Veja as decisões, justificativas, critérios de aceite e roteiro em [docs/MVP.md](docs/MVP.md).
 
