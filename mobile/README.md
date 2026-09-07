@@ -2,40 +2,52 @@
 
 Aplicativo Flutter demonstrativo do VozPay incorporado ao Banco Uno.
 
+## Recursos do MVP
+
+- pedido por voz ou texto;
+- encerramento manual e automático do microfone;
+- contato confiável “minha filha”;
+- interpretação do pedido por IA;
+- validação bancária simulada;
+- cenário cotidiano e cenário de maior atenção;
+- biometria simulada;
+- recibo verificável na Solana Devnet.
+
+O nome do fornecedor da IA não é apresentado ao cliente.
+
 ## Preparação
 
-Na pasta `mobile`, gere as pastas nativas caso ainda não existam:
+Dentro da pasta `mobile`, copie as variáveis:
 
-```bash
-flutter create --platforms=android,ios,web .
+```powershell
+Copy-Item .env.example .env
 ```
 
-Copie as variáveis de ambiente:
+Preencha `GEMINI_API_KEY` e mantenha `AUDIT_API_URL=http://localhost:3000` para executar o backend local.
 
-```bash
-cp .env.example .env
-```
+Depois:
 
-Preencha `GEMINI_API_KEY` no `.env` e execute:
-
-```bash
+```powershell
 flutter pub get
-flutter run
+flutter run -d chrome
 ```
 
-As frases reconhecidas e os botões de cenário são enviados ao Gemini. Sem uma
-chave válida, o aplicativo mostra o erro e não avança como se tivesse usado IA.
+Se aparecer “No pubspec.yaml file found”, o comando foi executado fora da pasta `mobile`.
+
+## Auditoria Solana
+
+Antes de confirmar um pagamento, inicie o serviço da pasta `backend` conforme o README daquela pasta. Sem o backend, o fluxo de pagamento continua funcionando, mas o comprovante informa que a auditoria está indisponível.
 
 ## Permissão de microfone
 
-No Android, acrescente ao `android/app/src/main/AndroidManifest.xml`:
+Android, em `android/app/src/main/AndroidManifest.xml`:
 
 ```xml
 <uses-permission android:name="android.permission.RECORD_AUDIO" />
 <uses-permission android:name="android.permission.INTERNET" />
 ```
 
-No iOS, acrescente ao `ios/Runner/Info.plist`:
+iOS, em `ios/Runner/Info.plist`:
 
 ```xml
 <key>NSSpeechRecognitionUsageDescription</key>
@@ -46,4 +58,4 @@ No iOS, acrescente ao `ios/Runner/Info.plist`:
 
 ## Segurança
 
-O uso de `.env` no aplicativo serve somente para demonstração. Aplicativos Flutter podem ter seus arquivos e chaves extraídos. Em produção, a chamada ao Gemini deve passar por um backend do banco, com autenticação, limite de uso e auditoria.
+Os arquivos `.env` servem somente para demonstração. Em produção, a chamada de IA e a assinatura Solana devem ocorrer em serviços autenticados do banco. Nunca publique uma chave real no GitHub ou compile uma chave privada dentro do aplicativo.
