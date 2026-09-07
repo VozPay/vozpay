@@ -1,34 +1,54 @@
 # VozPay
 
-MVP de uma camada de acessibilidade e proteção para pagamentos digitais, demonstrada como um módulo white-label dentro do aplicativo fictício Banco Uno.
+Camada B2B de acessibilidade e proteção integrada ao aplicativo do banco.
 
-## O que o protótipo demonstra
+O VozPay transforma pagamentos digitais em um processo que o usuário consegue pedir, entender, conferir e autorizar. O módulo combina voz, texto, botões grandes, contatos confiáveis e leitura de QR Code. O banco ou provedor de pagamentos continua responsável pela identidade, biometria, antifraude e execução.
 
-- Pix orientado por voz dentro do app do banco;
-- confirmação em linguagem simples;
-- cenário cotidiano para contato confiável;
-- alerta contextual para novo destinatário e valor elevado;
-- autenticação e comprovante sob responsabilidade do banco;
-- console B2B para políticas de proteção;
-- registro verificável da política sem publicar dados pessoais.
+## Como funciona
 
-## Executar
+1. O usuário ativa o modo VozPay no aplicativo financeiro.
+2. Fala, digita, cola uma chave, escolhe um contato ou lê um QR Code.
+3. A IA extrai apenas a intenção, sem inventar dados ou autorizar pagamentos.
+4. O provedor consulta a chave e retorna os dados oficiais do destinatário.
+5. O VozPay explica valor, nome e instituição em linguagem simples.
+6. As regras de proteção verificam destinatário novo, valor elevado e sinais de golpe.
+7. O usuário confirma com a autenticação do provedor.
+8. O provedor executa e emite o comprovante.
 
-Abra `index.html` no navegador ou execute um servidor estático:
+## Proteção sem retirar autonomia
+
+O produto oferece configurações iniciais prontas, mas personalizáveis. Alertas e biometria adicional são o padrão para operações de maior atenção. A aprovação de uma pessoa de apoio é opcional e ativada pelo próprio usuário, nunca imposta apenas pela idade.
+
+## Blockchain e Conta
+
+O MVP mantém duas possibilidades de arquitetura:
+
+- **Integração bancária/Conta:** melhor aderência ao uso cotidiano e ao Pix, mas tratada como simulação enquanto não existir uma API pública para terceiros.
+- **Registro em blockchain:** camada opcional de auditoria para registrar somente uma prova criptográfica das etapas de proteção.
+
+A blockchain não executa o Pix e não recebe nome, CPF, chave Pix, valor, saldo ou biometria. Também não armazena a chave privada do usuário.
+
+Veja as decisões, justificativas, critérios de aceite e roteiro em [docs/MVP.md](docs/MVP.md).
+
+## Protótipos
+
+- `mobile/`: aplicativo Flutter e principal demonstração;
+- `index.html`, `styles.css` e `app.js`: protótipo web e visão B2B.
+
+## Executar o Flutter
+
+Dentro da pasta `mobile`:
 
 ```bash
-python -m http.server 8000
+cp .env.example .env
+flutter pub get
+flutter run -d chrome
 ```
 
-Depois acesse `http://localhost:8000`.
+No PowerShell, use `Copy-Item .env.example .env`.
 
-## Estrutura
+A chave do serviço de IA no aplicativo é somente para demonstração. Em produção, a chamada deve passar pelo backend autenticado do provedor financeiro.
 
-- `index.html`: experiência do cliente e console do parceiro;
-- `styles.css`: identidade visual e responsividade;
-- `app.js`: navegação, cenários e reconhecimento de voz.
-- `mobile/`: versão Flutter com voz, resposta falada e interpretação pelo Gemini.
+## Escopo
 
-## Observação
-
-O projeto é uma demonstração. O Pix, a biometria e a integração bancária são simulados. Em produção, a instituição financeira continuaria responsável por autenticação, antifraude, compliance e execução das transações.
+O pitch começa com pessoas 60+, um público com dor clara, mas a solução pode atender pessoas com deficiência visual, dificuldade de leitura, baixa familiaridade digital ou qualquer cliente que prefira uma experiência financeira mais compreensível.
