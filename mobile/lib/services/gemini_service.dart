@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -37,45 +38,92 @@ class GeminiService {
       throw Exception('Serviço de interpretação não configurado.');
     }
 
-    final uri = Uri.parse(
-      'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent?key=$_apiKey',
-    );
-    final response = await http.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'contents': [
-          {
-            'parts': [
-              {
-                'text': '''
+    http.Response? response;
+    Object? lastNetworkError;
+
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        final uri = Uri.parse(
+          'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent?key=$_apiKey',
+        );
+        response = await http
+            .post(
+              uri,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({
+                'contents': [
+                  {
+                    'parts': [
+                      {
+                        'text': '''
 Interprete o pedido de pagamento em português do Brasil.
 Retorne somente JSON válido, sem markdown, neste formato:
-{"acao":"pix","valor":150.0,"destinatario":"Maria Silva","explicacao":"Enviar R\$ 150 para Maria Silva"}
+{"acao":"pix","valor":150.0,"destinatario":"Maria Silva","explicacao":"Enviar R\\$ 150 para Maria Silva"}
 Não invente valor nem destinatário. Se faltar algum dado, use valor 0 ou string vazia.
 Pedido: $phrase
 ''',
-              },
-            ],
-          },
-        ],
-        'generationConfig': {
-          'temperature': 0.1,
-          'responseMimeType': 'application/json',
-        },
-      }),
-    );
+                      },
+                    ],
+                  },
+                ],
+                'generationConfig': {
+                  'temperature': 0.1,
+                  'responseMimeType': 'application/json',
+                },
+              }),
+            )
+            .timeout(const Duration(seconds: 20));
+        lastNetworkError = null;
+      } on TimeoutException catch (error) {
+        lastNetworkError = error;
+      } on http.ClientException catch (error) {
+        lastNetworkError = error;
+      }
 
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('Serviço temporariamente indisponível (${response.statusCode}).');
+      final retryableStatus = response != null &&
+          const {429, 500, 502, 503, 504}.contains(response.statusCode);
+      final shouldRetry =
+          attempt < 2 && (lastNetworkError != null || retryableStatus);
+
+      if (!shouldRetry) break;
+      response = null;
+      await Future<void>.delayed(Duration(seconds: 1 << attempt));
     }
+
+    if (response == null) {
+      throw Exception(
+        'A conexão com o assistente demorou demais. Tente novamente.',
+      );
+    }
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      throw Exception(
+        'O assistente não está autorizado. Confira a chave da API.',
+      );
+    }
+    if (response.statusCode == 404) {
+      throw Exception(
+        'O modelo configurado não está disponível. Confira GEMINI_MODEL.',
+      );
+    }
+    if (const {429, 500, 502, 503, 504}.contains(response.statusCode)) {
+      throw Exception(
+        'O assistente está temporariamente ocupado. Aguarde e tente novamente.',
+      );
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(
+        'Não foi possível interpretar o pedido (${response.statusCode}).',
+      );
+    }
+
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     final candidates = body['candidates'] as List<dynamic>?;
     if (candidates == null || candidates.isEmpty) {
       throw Exception('Não foi possível interpretar o pedido.');
     }
-    final content = candidates.first['content'] as Map<String, dynamic>?;
-    final parts = content?['parts'] as List<dynamic>?;
+    final candidate = candidates.first as Map<String, dynamic>;
+    final modelContent = candidate['content'] as Map<String, dynamic>?;
+    final parts = modelContent?['parts'] as List<dynamic>?;
     final firstPart = parts != null && parts.isNotEmpty
         ? parts.first as Map<String, dynamic>
         : null;
@@ -83,10 +131,13 @@ Pedido: $phrase
     if (text == null || text.isEmpty) {
       throw Exception('Não foi possível interpretar o pedido.');
     }
-    final intent = PaymentIntent.fromJson(jsonDecode(text) as Map<String, dynamic>);
+
+    final intent =
+        PaymentIntent.fromJson(jsonDecode(text) as Map<String, dynamic>);
     if (intent.amount <= 0 || intent.recipient.trim().isEmpty) {
-      throw Exception('Faltou informar o valor ou o destinatário.');
+      throw Exception('Informe o valor e o destinatário para continuar.');
     }
     return intent;
   }
+
 }
