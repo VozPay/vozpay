@@ -58,7 +58,7 @@ class GeminiService {
                         'text': '''
 Interprete o pedido de pagamento em português do Brasil.
 Retorne somente JSON válido, sem markdown, neste formato:
-{"acao":"pix","valor":150.0,"destinatario":"Maria Silva","explicacao":"Enviar R\\$ 150 para Maria Silva"}
+{"acao":"pix","valor":150.0,"destinatario":"Maria Silva","explicacao":"Enviar R\$ 150 para Maria Silva"}
 Não invente valor nem destinatário. Se faltar algum dado, use valor 0 ou string vazia.
 Pedido: $phrase
 ''',
